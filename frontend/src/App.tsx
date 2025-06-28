@@ -7,6 +7,8 @@ interface Message {
   sender: 'user' | 'bot';
 }
 
+const NAVBAR_HEIGHT = 70;
+
 function App() {
   const [inputValue, setInputValue] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
@@ -18,6 +20,9 @@ function App() {
   const [chatOpen, setChatOpen] = useState(false);
   const [isFloatingChat, setIsFloatingChat] = useState(false);
   const heroRef = useRef<HTMLDivElement | null>(null);
+  const [isFloatingChatOpen, setIsFloatingChatOpen] = useState(false);
+  const [chatTransitioning, setChatTransitioning] = useState(false);
+  const [showFloatingChat, setShowFloatingChat] = useState(false);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -45,6 +50,25 @@ function App() {
     handleScroll();
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  // Update scroll effect to handle transition
+  useEffect(() => {
+    let timeout: NodeJS.Timeout;
+    if (!isFloatingChat && showFloatingChat) {
+      // Going from floating to in-flow: fade out floating, fade in in-flow
+      setChatTransitioning(true);
+      setShowFloatingChat(false);
+      timeout = setTimeout(() => setChatTransitioning(false), 250);
+    } else if (isFloatingChat && !showFloatingChat) {
+      // Going from in-flow to floating: fade out in-flow, fade in floating
+      setChatTransitioning(true);
+      timeout = setTimeout(() => {
+        setShowFloatingChat(true);
+        setChatTransitioning(false);
+      }, 250);
+    }
+    return () => clearTimeout(timeout);
+  }, [isFloatingChat]);
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -124,6 +148,15 @@ function App() {
     };
   }, [isResizing]);
 
+  const handleNavClick = (id: string) => (e: React.MouseEvent<HTMLAnchorElement>) => {
+    e.preventDefault();
+    const el = document.getElementById(id);
+    if (el) {
+      const y = el.getBoundingClientRect().top + window.scrollY - NAVBAR_HEIGHT;
+      window.scrollTo({ top: y, behavior: 'smooth' });
+    }
+  };
+
   return (
     <div className="portfolio-container">
       {/* Navigation */}
@@ -131,11 +164,11 @@ function App() {
         <div className="nav-content">
           <div className="nav-brand">Khalid Mehtab Khan</div>
           <div className="nav-links">
-            <a href="#hero">Home</a>
-            <a href="#projects">Projects</a>
-            <a href="#education">Education</a>
-            <a href="#skills">Skills</a>
-            <a href="#contact">Contact</a>
+            <a href="#hero" onClick={handleNavClick('hero')}>Home</a>
+            <a href="#projects" onClick={handleNavClick('projects')}>Projects</a>
+            <a href="#education" onClick={handleNavClick('education')}>Education</a>
+            <a href="#skills" onClick={handleNavClick('skills')}>Skills</a>
+            <a href="#contact" onClick={handleNavClick('contact')}>Contact</a>
           </div>
         </div>
       </nav>
@@ -163,7 +196,7 @@ function App() {
                 </p>
               </div>
               {/* Embedded Chat Input (centered or floating) */}
-              <div className={isFloatingChat ? "embedded-chat floating-chat" : "embedded-chat"}>
+              <div className={`embedded-chat hero-chat${isFloatingChat ? ' chat-hidden' : ' chat-visible'}`}>
                 <div className="chat-header-hero">Ask Khalid</div>
                 <div className="chat-messages-hero">
                   {messages.length > 0 && (
@@ -186,6 +219,38 @@ function App() {
                   </button>
                 </form>
               </div>
+              {(showFloatingChat || (isFloatingChat && chatTransitioning)) && (
+                isFloatingChatOpen ? (
+                  <div className={`embedded-chat floating-chat${chatTransitioning ? ' chat-fade-in' : ''}`}>
+                    <button className="floating-chat-close" onClick={() => setIsFloatingChatOpen(false)} title="Close chat">×</button>
+                    <div className="chat-header-hero">Ask Khalid</div>
+                    <div className="chat-messages-hero">
+                      {messages.length > 0 && (
+                        <div className="message bot hero-bot-message">
+                          <div className="message-content hero-message-content">{messages[messages.length - 1].text}</div>
+                        </div>
+                      )}
+                    </div>
+                    <form onSubmit={handleSend} className="chat-input-form-hero">
+                      <input
+                        type="text"
+                        value={inputValue}
+                        onChange={e => setInputValue(e.target.value)}
+                        placeholder="Ask me anything about my work, research, or experience..."
+                        className="chat-input-hero"
+                        disabled={isSending}
+                      />
+                      <button type="submit" className="chat-send-btn-hero" disabled={isSending || !inputValue.trim()}>
+                        →
+                      </button>
+                    </form>
+                  </div>
+                ) : (
+                  <button className="floating-chat-btn" onClick={() => setIsFloatingChatOpen(true)} title="Ask Khalid">
+                    <span role="img" aria-label="Chat">💬</span>
+                  </button>
+                )
+              )}
             </div>
           </section>
 
